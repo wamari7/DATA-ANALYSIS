@@ -1,0 +1,137 @@
+import pandas as pd
+import numpy as np
+
+#Creating a variable to store column names
+column_names = ["empty","T-Day","T-Month","T-Year", "Code", "No", "R-Day","R-Month","R-Year",
+         "Origin Court", "Origin Code", "Origin No", "Origin Year", "Specific Case Type",
+         "Judge 1", "Judge 2", "Judge 3", "Judge 4", "Judge 5", "Judge 6", "Judge 7", 
+         "Case coming for", "Case OutCome", "Reason of adjournment", "N-Day","N-Month",
+         "N-Year","P-M", "P-F","P-Org.", "D-M", "D-F", "D-Org.", "Legal Rep", "Witness-P", "Witness-D",
+         "Crim-Custody","Other Details"]
+print(len(column_names))
+#Reading the Excel files
+New = pd.read_excel("/workspaces/pyt/docs/Wamari/New_combined.xlsx", names = column_names)
+#Loading the forst 7 rows
+print(New.head(7))
+#Dropping the first 4 rows since they do not contain any data
+New.drop(index=[0,1,2,3], inplace = True)
+print(New.head(7))
+#Resetting the indexes to start from 0
+New.reset_index(drop = True, inplace = True)
+#Dropping the empty column
+New.drop(columns = ["empty"], inplace = True)
+#View the first 4 rows
+print(New.head(4))
+#Cheking the number of rows and columns in our data
+print(New.shape)
+#Cheking the infomation in our dataset
+print(New.info())
+#Creating a function duplicated_data
+def duplicated_data(data):
+    #Check the whole data for duplicates;keep the first entry as original
+    if (data.duplicated(subset = None, keep = "first").any() == True):
+        #Count the number of true values and store in a new variable
+        duplicated_count = data.duplicated().value_counts()
+
+        #store the true values in a new variable num_duplicates
+        num_duplicates = duplicated_count[True]
+        #using f string to print the number of duplicates
+        print(f"{num_duplicates} duplicates found.")
+        #drop the duplicates and keep the first entry as the original
+        data.drop_duplicates(subset = None, keep = "first", inplace = True)
+        print("Duplicates succesfully removed.") #print success
+
+        #reset the indexes after removing the rows with duplicates
+        return data
+    #execute the else if there are no duplicates and return the data
+    else:
+        print("No duplicates")
+        return data
+#calling our function and and reassigning it to our dataframe
+New = duplicated_data(New)
+
+#Cheking for missing values
+def missing_values(data):
+    #Cheking for missing values, sum all the trues and arrange them in descending order
+    miss = data.isnull().sum().sort_values(ascending = False)
+
+
+    #Cheking for missing values, sum all the trues; their percentage composition colunmwise; and arrange them in descinding 
+    percentage_miss = (np.round((data.isnull().sum()/len(data))*100, 3)).sort_values(ascending= False)
+
+
+    #Creating a dataframe to store the missinng values and their percentage composition
+    missing = pd.DataFrame({"Missing Values": miss, "percentage(%)": percentage_miss})
+
+
+    #dropping missing values with percentage of 0
+    missing.drop(missing[missing["percentage(%)"] == 0].index, inplace = True)
+
+
+    return missing
+
+
+#calling the function and printing the missing values
+missing_data = missing_values(New)
+
+#Displaying the missing_data Dataframe(missing values and what they constitute)
+print(missing_data)
+
+
+
+def datetime(data, new_col, day, month, year, date_format, index):
+    """"
+
+    creating a function datetime which takes data, new_col, day, month, year, date_format, index as arguments.
+    create a new column to store the concat results from 3 data columns
+    convert the new created column from object (string) to datetime, incase of errors (NaN) values treat them as missing values
+    Insert the location of the new column, and remove it from previous default location
+    Finally, drop the unwanted columns and return data
+    """
+
+    # Add dashes between day, month, year
+    data[new_col] = data[day].astype(str) + "-" + data[month].astype(str) + "-" + data[year].astype(str)
+    # Use the correct format string
+    data[new_col] = pd.to_datetime(data[new_col], format=date_format, errors="coerce")
+    data.insert(index, new_col, data.pop(new_col))
+    data.drop(columns=[day, month, year], inplace=True)
+    return data
+
+    
+
+
+# calling datetime function, over our sample data, passing the columns to be concatnated, date format and index
+New = datetime(New, "Today's Date", 'T-Day', 'T-Month', 'T-Year', "%d-%b-%Y", 0)
+
+# calling datetime function, over our sample data, passing the columns to be concatnated, date format and index
+New = datetime(New, "Registration Date", "R-Day", "R-Month", "R-Year", "%d-%b-%Y", 3)
+
+# calling datetime function, over our sample data, passing the columns to be concatnated, date format and index
+New = datetime(New, "Next Court Date", "N-Day", "N-Month", "N-Year", "%d-%b-%Y", 9)
+
+
+# check the data types of our new data, to ascertain the above changes
+print(New.dtypes)
+
+# check the first 5 rows of our data
+print(New.head(5))
+
+
+# do a value count on the case coming for column to ascertain the respective number of occurances
+print(New["Case coming for"].value_counts())
+
+#Converting the file to excel
+New.to_excel("/workspaces/pyt/docs/Wamari/New_cleaned_data.xlsx", index=False)
+print("File successfully changed")
+print(New[["Today's Date", "Registration Date", "Next Court Date"]].head())
+print(New.columns)
+
+
+#Filtering the data to get only the rulings
+rulings = New[New["Case OutCome"].str.contains("Ruling", case=False, na=False)]
+#Printing the first 5 rows of the rulings
+print(rulings.head())
+
+# Export the rulings to Excel
+rulings.to_excel("/workspaces/pyt/docs/Wamari/New_rulings.xlsx", index=False)
+print("Rulings exported to Excel.")
